@@ -1,0 +1,10 @@
+[package]
+name = "revenant"
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+pollster = "1.0.1"
+wgpu = "30.0.1"
+winit = "0.30.13"
