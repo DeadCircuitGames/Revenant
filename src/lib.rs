@@ -13,6 +13,7 @@ struct Gfx {
     device: wgpu::Device,
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
+    pipeline: wgpu::RenderPipeline,
 }
 
 impl Gfx {
@@ -42,12 +43,40 @@ impl Gfx {
             .expect("surface not supported by adapter");
         surface.configure(&device, &config);
 
+        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("triangle shader"),
+            source: wgpu::ShaderSource::Wgsl(include_str!("shader.wgsl").into()),
+        });
+
+        let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("triangle pipeline"),
+            layout: None, // no bind groups yet, so let wgpu infer it
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: Some("vs_main"),
+                compilation_options: Default::default(),
+                buffers: &[], // positions will come from the shader for now
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: Some("fs_main"),
+                compilation_options: Default::default(),
+                targets: &[Some(config.format.into())],
+            }),
+            primitive: wgpu::PrimitiveState::default(),
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState::default(),
+            multiview_mask: None,
+            cache: None,
+        });
+
         Self {
             window,
             surface,
             device,
             queue,
             config,
+            pipeline,
         }
     }
 
@@ -83,8 +112,8 @@ impl Gfx {
             });
 
         {
-            let _pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("clear pass"),
+            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("main pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &view,
                     depth_slice: None,
@@ -104,6 +133,9 @@ impl Gfx {
                 occlusion_query_set: None,
                 multiview_mask: None,
             });
+
+            pass.set_pipeline(&self.pipeline);
+            pass.draw(0..3, 0..1); // 3 vertices and 1 instance
         }
 
         self.queue.submit(Some(encoder.finish()));
@@ -143,7 +175,6 @@ impl ApplicationHandler for App {
         }
     }
 }
-
 
 /// opens a window and runs our event loop until it exits
 pub fn run(title: &str) {
